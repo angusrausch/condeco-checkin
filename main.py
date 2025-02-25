@@ -92,10 +92,23 @@ class App:
             for booking in bookings:
                 payload = self.create_payload(booking)
                 api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split("=")[1]}"
-                checkin_response = self.session.put(api_address, data=payload)
+                # checkin_response = self.session.put(api_address, data=payload)
+                # checkin_response = self.session.put(api_address, json=payload)
+                headers = {
+                    "Authorization": f"Bearer {self.elite_session_token}",
+                    "Content-Type": "application/json; charset=utf-8"
+                }
+
+                checkin_response = self.session.put(api_address, json=payload, headers=headers)
+                # print(checkin_response.text)
                 checkin_response.raise_for_status()
-                checkin_json = checkin_response.json()
-                print("Check-in completed successfully.\n")
+                # print("Response Body:", checkin_response.text)
+                for key, value in payload.items(): print(f"{key}: {value}")
+                # print("\n\nResponse Code:", checkin_response.status_code)
+                # checkin_json = checkin_response.json()
+                # for key, value in checkin_json.items(): print(f"{key}: {value}")
+                # print("Check-in completed successfully.\n")
+                print("\n\n")
         else: 
             print("Bookings info request failed")
 
@@ -120,15 +133,85 @@ class App:
             print("Error fetching upcoming bookings:", e)
 
     def create_payload(self, booking):
-        payload = booking
-        payload.update({"bookingStatus": 3})
-        payload.update({"isWorkplace": True})
-        payload.update({"languageId": 1})
-        booked_by = {"userId": self.user_id, 
-                     "name": self.name, 
-                     "requestorEmail": self.credentials[0]}
-        payload.update({"bookedBy": booked_by})
+        payload = booking.copy()  # Make a copy to avoid modifying the original booking
+        
+        # Set default values for some fields
+        payload["bookingStatus"] = 1
+        payload["isWorkplace"] = True
+        payload["languageId"] = 1
+        payload["isAllDayBooking"] = True
+
+        booked_by = {
+            "userId": self.user_id,
+            "name": self.name,
+            "requestorEmail": self.credentials[0]
+        }
+        payload["bookedBy"] = booked_by
+
+        # Now wrap everything into the "booking" key dynamically from the original data
+        payload["booking"] = {
+            "IsAllowedWithinCancelBeforeLimit": False,  # You can calculate or assign this based on your logic
+            "amReleased": None,  # You can modify based on your business rules
+            "approved": False,  # Modify accordingly
+            "assetURL": None,  # Assign it dynamically if needed
+            "blindManaged": False,  # Set based on the booking's state if needed
+            "bookedBy": booked_by,
+            "bookedFor": booking.get("bookedFor", None),
+            "bookedLocation": booking.get("bookedLocation", "Unknown Location"),  # Dynamically take from booking
+            "bookedResourceItemId": booking.get("bookedResourceItemId", 0),
+            "bookedResourceName": booking.get("bookedResourceName", "Unknown Resource"),
+            "bookingId": booking.get("bookingId", 0),
+            "bookingItemId": booking.get("bookingItemId", 0),
+            "bookingMetadata": booking.get("bookingMetadata", {}),
+            "bookingSource": booking.get("bookingSource", 0),
+            "bookingStatus": booking.get("bookingStatus", 0),
+            "bookingTitle": booking.get("bookingTitle", ""),
+            "bookingType": booking.get("bookingType", 0),
+            "businessUnitId": booking.get("businessUnitId", 0),
+            "changedByUserId": booking.get("changedByUserId", 0),
+            "disableWebCheckIn": booking.get("disableWebCheckIn", False),
+            "enableDeskCheckinLocationTimeZone": booking.get("enableDeskCheckinLocationTimeZone", 1),
+            "enableMeetingSpacesFloorPlan": booking.get("enableMeetingSpacesFloorPlan", True),
+            "enableSelfCertificationOnLocation": booking.get("enableSelfCertificationOnLocation", False),
+            "encryptedQuerstringReviewSummary": booking.get("encryptedQuerstringReviewSummary", None),
+            "endDateTime": booking.get("endDateTime", ""),
+            "endDateTimeUtc": booking.get("endDateTimeUtc", ""),
+            "enterpriseBookingSource": booking.get("enterpriseBookingSource", 0),
+            "fdCheckedIn": booking.get("fdCheckedIn", None),
+            "fdReleased": booking.get("fdReleased", None),
+            "floor": booking.get("floor", ""),
+            "floorName": booking.get("floorName", ""),
+            "floorPlanOnMap": booking.get("floorPlanOnMap", True),
+            "hasValidNoticeForExtend": booking.get("hasValidNoticeForExtend", True),
+            "individuallyEdited": booking.get("individuallyEdited", False),
+            "isWorkplace": booking.get("isWorkplace", None),
+            "locationId": booking.get("locationId", 0),
+            "locationTimeZone": booking.get("locationTimeZone", ""),
+            "managedForAdmin": booking.get("managedForAdmin", False),
+            "minutesToExtend": booking.get("minutesToExtend", None),
+            "parentBookingId": booking.get("parentBookingId", None),
+            "pendingOnGrid": booking.get("pendingOnGrid", False),
+            "pmReleased": booking.get("pmReleased", None),
+            "preventSpecificSpaceRequests": booking.get("preventSpecificSpaceRequests", False),
+            "qrCodeEnabled": booking.get("qrCodeEnabled", False),
+            "recurrenceID": booking.get("recurrenceID", 0),
+            "requestedBy": booking.get("requestedBy", None),
+            "resourceStatus": booking.get("resourceStatus", 0),
+            "selfCertificationContent": booking.get("selfCertificationContent", ""),
+            "selfCertificationDisagreeContent": booking.get("selfCertificationDisagreeContent", ""),
+            "startDateTime": booking.get("startDateTime", ""),
+            "startDateTimeUtc": booking.get("startDateTimeUtc", ""),
+            "timeZoneId": booking.get("timeZoneId", ""),
+            "updateDateTime": booking.get("updateDateTime", None),
+            "updateDateTimeUtc": booking.get("updateDateTimeUtc", None),
+            "vcId": booking.get("vcId", None),
+            "waitList": booking.get("waitList", False),
+            "wsTypeId": booking.get("wsTypeId", 2)
+        }
+
         return payload
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A Condeco auto checkin app.")
