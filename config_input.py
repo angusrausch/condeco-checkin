@@ -9,7 +9,8 @@ def get_config(config_filename):
     address = config.get("DEFAULT", "Address")
     username = config.get("DEFAULT", "Username")
     password = config.get("DEFAULT", "Password")
-    return (username, password), address
+    name = config.get("DEFAULT", "Name")
+    return (username, password), address, name
 
 def generate_ini(filename):
     with open(filename, "x") as file:
@@ -18,6 +19,7 @@ def generate_ini(filename):
 Address = https://boeing.condecosoftware.com/Login/Login.aspx
 Username = f.m.l@boeing.com
 Password = password
+Name = First Last *MUST MATCH EXACTLY YOUR CONDECO NAME
                    
 [BOOKING]
 Country = Australia

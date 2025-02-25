@@ -1,12 +1,6 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import Select
-
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
 from config_input import get_config, get_booking_details
+import requests
+from bs4 import BeautifulSoup
 from humanise import humanise
 import argparse
 from time import sleep
@@ -14,68 +8,130 @@ import traceback
 
 class App:
     def __init__(self, config="signin.ini", action = ""):
-        action = action.lower()
-        self.driver = webdriver.Firefox()
         try:
-            self.credentials, self.address = get_config(config)
+            self.credentials, self.address, self.name = get_config(config)
             self.config = config
-            self.login()
+            if (login_message := self.login()) != True:
+                print(login_message[1])
             if action == "book":
-                self.book()
+                pass
+                # self.book()
             elif action == "checkin":
                 self.checkin()
         except Exception as e:
             traceback.print_exc()
-        self.driver.close()
 
     def login(self):
-        self.driver.get(self.address + "/login")
-        username_field = self.driver.find_element(By.NAME, 'txtUserName')
-        password_field = self.driver.find_element(By.NAME, 'txtPassword')
-        login_button = self.driver.find_element(By.NAME, 'btnLogin')
+        self.session = requests.Session()
         
-        humanise(0)
-        username_field.send_keys(self.credentials[0])
-        humanise(0)
-        password_field.send_keys(self.credentials[1])
-        login_button.click()
-        humanise(2)
-    
-    def book(self):
-        bookings_details = get_booking_details(self.config)
-        for booking_detail in bookings_details:
-            nav_frame = self.driver.find_element(By.ID, "leftNavigation")
-            main_frame = self.driver.find_element(By.ID, "mainDisplayFrame")
-            self.driver.switch_to.default_content()
-            self.driver.switch_to.frame(nav_frame)
-            self.driver.find_element(By.ID, "DeskBookingHeader").click()
-            self.driver.find_element(By.ID, "li_bookingGrid_desk").click()
-            humanise(5)
-            for key, value in booking_detail.items():
-                self.driver.switch_to.default_content()
-                self.driver.switch_to.frame(main_frame)
-                if key in ("Desk", "Days"): continue
-                selection_box = Select(self.driver.find_element(By.ID, 'cmb'+key))
-                selection_box.select_by_visible_text(value)
-                humanise(3)
-            backend_room_id = self.get_room_id(booking_detail["Desk"])
-
-    def get_room_id(self, room_name):
-        room_element = self.driver.find_element(By.XPATH, f"//th//strong[text()='{room_name}']/ancestor::th")
-        room_id = room_element.find_element(By.XPATH, ".//a").get_attribute("data-room-id")
-        return room_id
+        login_url = f"{self.address}/login/login.aspx"
+        response = self.session.get(login_url)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        view_state = soup.find("input", {"name": "__VIEWSTATE"})["value"]
+        view_state_generator = soup.find("input", {"name": "__VIEWSTATEGENERATOR"})["value"]
+        event_validation = soup.find("input", {"name": "__EVENTVALIDATION"})["value"]
+        
+        # Prepare login payload
+        payload = {
+            "__EVENTTARGET": "",
+            "__EVENTARGUMENT": "",
+            "__VIEWSTATE": view_state,
+            "__VIEWSTATEGENERATOR": view_state_generator,
+            "__EVENTVALIDATION": event_validation,
+            "txtUserName": self.credentials[0],
+            "txtPassword": self.credentials[1],
+            "btnLogin": "Sign+In"
+        }
+        
+        # Perform login
+        login_response = self.session.post(login_url, data=payload)
+        login_response.raise_for_status()
+        
+        # Extract UserId from HTML response
+        user_id_marker = "var int_userID = "
+        user_id_start = login_response.text.find(user_id_marker) + len(user_id_marker)
+        user_id_end = login_response.text.find(";", user_id_start)
+        self.user_id = login_response.text[user_id_start:user_id_end].strip()
+        
+        if not self.user_id:
+            return (False, "Could not extract UserId from HTML")
+        
+        # Extract userIdLong from cookies
+        self.user_id_long = self.session.cookies.get("CONDECO")
+        
+        if not self.user_id_long:
+            return (False, "CONDECO cookie was not retrieved.")
+        
+        # Retrieve token for Enterprise login
+        ent_login_url = f"{self.address}/EnterpriseLiteLogin.aspx"
+        ent_response = self.session.get(ent_login_url)
+        ent_response.raise_for_status()
+        
+        soup = BeautifulSoup(ent_response.text, "html.parser")
+        token = soup.find("input", {"name": "token"})["value"]
+        
+        # Authenticate into Enterprise
+        auth_url = f"{self.address}/enterpriselite/auth"
+        auth_response = self.session.post(auth_url, data={"token": token})
+        auth_response.raise_for_status()
+        
+        self.elite_session_token = self.session.cookies.get("EliteSession")
+        if not self.elite_session_token:
+            return (False, "EliteSession cookie was not retrieved.")
+        
+        # Set authorization header
+        self.session.headers.update({"Authorization": f"Bearer {self.elite_session_token}"})
+        
+        return True
 
     def checkin(self):
-        main_frame = self.driver.find_element(By.ID, "mainDisplayFrame")
-        humanise(10, 360)
-        self.driver.switch_to.frame(main_frame)
-        button = WebDriverWait(self.driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Check in')]"))
-        )
-        button.click()
+        bookings = self.get_upcoming_bookings()
+        if bookings:
+            for booking in bookings:
+                payload = self.create_payload(booking)
+                api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split("=")[1]}"
+                checkin_response = self.session.put(api_address, data=payload)
+                checkin_response.raise_for_status()
+                checkin_json = checkin_response.json()
+                print("Check-in completed successfully.\n")
+        else: 
+            print("Bookings info request failed")
+
+    def get_upcoming_bookings(self):
+        try:
+            # Define the API endpoint
+            api_url = f"{self.address}/EnterpriseLite/api/Booking/GetUpComingBookings"
+
+            # Set the date range
+            start_date = "2025-02-24 14:00:00"
+            end_date = "2025-02-25 13:59:59"
+            params = {"startDateTime": start_date, "endDateTime": end_date}
+
+            # Make the request (session must have the authentication cookies)
+            response = self.session.get(api_url, params=params)
+            response.raise_for_status()  # Raise an error for bad responses
+
+            # Parse JSON response
+            bookings = response.json()
+            return bookings
+        except requests.RequestException as e:
+            print("Error fetching upcoming bookings:", e)
+
+    def create_payload(self, booking):
+        payload = booking
+        payload.update({"bookingStatus": 3})
+        payload.update({"isWorkplace": True})
+        payload.update({"languageId": 1})
+        booked_by = {"userId": self.user_id, 
+                     "name": self.name, 
+                     "requestorEmail": self.credentials[0]}
+        payload.update({"bookedBy": booked_by})
+        return payload
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="A Selenium automation script with argument passing.")
+    parser = argparse.ArgumentParser(description="A Condeco auto checkin app.")
     parser.add_argument("--config", type=str, default="checkin.ini", help="Path to the configuration file. Default is 'signin.ini'.")
     parser.add_argument("--action", type=str, help="Action to complete: Options: Book, Checkin")
 
