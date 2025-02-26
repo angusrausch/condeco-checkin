@@ -7,6 +7,7 @@ from humanise import humanise
 import argparse
 from time import sleep
 import traceback
+from datetime import datetime, timedelta
 
 class App:
     def __init__(self, config="signin.ini", action = ""):
@@ -94,9 +95,9 @@ class App:
             primary_payload = generate_payload(bookings)
             secondary_payload = generate_secondary_payload(bookings[1])
             for payload in (secondary_payload, primary_payload):
-                print("\n")
-                print(json.dumps(payload))
-                print("\n")
+                # print("\n")
+                # print(json.dumps(payload))
+                # print("\n")
                 api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split("=")[1]}"
                 headers = {
                     "Authorization": f"Bearer {self.elite_session_token}",
@@ -115,8 +116,10 @@ class App:
             api_url = f"{self.address}/EnterpriseLite/api/Booking/GetUpComingBookings"
 
             # Set the date range
-            start_date = "2025-02-24 14:00:00"
-            end_date = "2025-02-25 13:59:59"
+            start_date, end_date = self.get_date_range()
+            # Start date needs to be yesterday 14:00:00 end date is today 13:59:59
+            # start_date = "2025-02-26 14:00:00" 
+            # end_date = "2025-02-27 13:59:59"
             params = {"startDateTime": start_date, "endDateTime": end_date}
 
             # Make the request (session must have the authentication cookies)
@@ -125,10 +128,19 @@ class App:
 
             # Parse JSON response
             bookings = response.json()
+            # print(json.dumps(bookings))
             return bookings
         except requests.RequestException as e:
             print("Error fetching upcoming bookings:", e)
 
+    def get_date_range(self):
+        today = datetime.today()
+        yesterday = today - timedelta(days=1)
+        
+        start_date = yesterday.replace(hour=14, minute=0, second=0, microsecond=0)
+        end_date = today.replace(hour=13, minute=59, second=59, microsecond=0)
+        
+        return start_date.strftime("%Y-%m-%d %H:%M:%S"), end_date.strftime("%Y-%m-%d %H:%M:%S")
 
 
 if __name__ == "__main__":
