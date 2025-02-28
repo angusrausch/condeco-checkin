@@ -161,14 +161,14 @@ def generate_payload(bookings):
                 "bookedResourceItemId": booking_1["bookedResourceItemId"],
                 "floor": booking_1["floor"],
                 "bookedLocation": booking_1["bookedLocation"],
-                "bookingId": booking_0["bookingId"],
-                "bookingItemId": booking_0["bookingItemId"],
+                "bookingId": booking_1["bookingId"],
+                "bookingItemId": booking_1["bookingItemId"],
                 "bookedBy": booking_1["bookedBy"],
                 "requestedBy": None,
                 "bookedFor": None,
                 "startDateTime": booking_1["startDateTime"],
-                "startDateTimeUtc": booking_1["startDateTimeUtc"],
                 "endDateTime": booking_1["endDateTime"],
+                "startDateTimeUtc": booking_1["startDateTimeUtc"],
                 "endDateTimeUtc": booking_1["endDateTimeUtc"],
                 "bookingStatus": 3,
                 "businessUnitId": 133,
@@ -288,7 +288,7 @@ def generate_payload(bookings):
     return payload
 
 def generate_secondary_payload(booking):
-    payload = {
+    payload = booking | {
         "booking": copy.deepcopy(booking),
         "fetchingExtend": False,
         "showExtend": False,
@@ -305,35 +305,12 @@ def generate_secondary_payload(booking):
         "disableWebCheckIn": False,
         "bookingMetadata": copy.deepcopy(booking.get("bookingMetadata", {}))
     }
-    
-    # Updating specific fields
-    payload["booking"]["bookingId"] += 2
-    payload["booking"]["bookingItemId"] += 4
-    payload["booking"]["startDateTime"] = "2025-02-26T12:00:00"
-    payload["booking"]["endDateTime"] = "2025-02-26T23:59:00"
-    payload["booking"]["startDateTimeUtc"] = "2025-02-26T02:00:00"
-    payload["booking"]["endDateTimeUtc"] = "2025-02-26T13:59:00"
     payload["booking"]["bookingStatus"] = 3
     payload["booking"]["IsAllowedWithinCancelBeforeLimit"] = True
     payload["booking"]["hasValidNoticeForExtend"] = True
-    
-    # Adding additional fields at root level
-    for key in [
-        "startDateTime", "startDateTimeUtc", "endDateTime", "endDateTimeUtc",
-        "bookingType", "bookingTitle", "bookedResourceName", "bookedResourceItemId",
-        "floor", "bookedLocation", "bookingId", "bookingItemId", "bookedBy",
-        "requestedBy", "bookedFor", "bookingStatus", "businessUnitId", "locationId",
-        "locationTimeZone", "parentBookingId", "vcId", "approved", "pendingOnGrid",
-        "waitList", "blindManaged", "managedForAdmin", "resourceStatus",
-        "encryptedQuerstringReviewSummary", "amReleased", "pmReleased", "fdCheckedIn",
-        "fdReleased", "minutesToExtend", "updateDateTime", "updateDateTimeUtc",
-        "bookingSource", "enterpriseBookingSource", "individuallyEdited", "timeZoneId",
-        "changedByUserId", "enableSelfCertificationOnLocation", "selfCertificationContent",
-        "selfCertificationDisagreeContent", "enableDeskCheckinLocationTimeZone",
-        "wsTypeId", "qrCodeEnabled", "assetURL", "floorName", "isWorkplace",
-        "recurrenceID", "languageId", "floorPlanOnMap", "preventSpecificSpaceRequests",
-        "enableMeetingSpacesFloorPlan"
-    ]:
-        payload[key] = payload["booking"].get(key, None)
+    payload["originalBookingStatus"] = 0
+    payload["bookingStatus"] = 1
+    payload["startDateTimeUtc"] = booking["startDateTimeUtc"].split("T")[0] + "T12:00:00"
+    payload["endDateTimeUtc"] = booking["endDateTimeUtc"].split("T")[0] + "T23:59:00"
     
     return payload
