@@ -70,6 +70,8 @@ def get_webserver_config(config_filename):
 
     return address, port
 
+def create_user(filename):
+    pass
 
 def generate_yaml(filename):
     """Generate a default YAML configuration file."""
@@ -82,7 +84,7 @@ def generate_yaml(filename):
         },
         "CREDENTIALS": 
         {
-            "Address": "https://boeing.condecosoftware.com/Login/Login.aspx",
+            "Address": "https://boeing.condecosoftware.com",
             "Username": "f.m.l@boeing.com",
             "Password": "password",
             "Name": "First Last *MUST MATCH EXACTLY YOUR CONDECO NAME",

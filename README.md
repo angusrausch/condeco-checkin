@@ -4,9 +4,16 @@
 
 ### Setup 
 - Setup virtual enviroment
-    - TBD
-- Install Selenium pip module
-    - TBD
+    - Have python installed
+    - Setup virtual enviroment
+        - Windows 
+            - Create enviroment ```py -m venv venv```
+            - Activate enviroment ```venv\scripts\activate```
+            - Install pip modules ```pip3 install -r requirements.txt```
+        - Unix
+            - Create enviroment ```python3 -m venv venv```
+            - Activate enviroment ```source venv/bin/activate```
+            - Install pip modules ```pip3 install -r requirements.txt```
 
 ### Simple use
  - Setup config file
@@ -46,13 +53,11 @@
         - Example
             ```5 0 * * 1 /bin/python3 /home/user/condeco-autobook/main.py --action book --config /home/user/condeco-autobook/checkin.ini```
 
-- For Checkin
+- For Check in
     - Make a cron job with the following timings
         - ```0 7 * * 1-5 ```
             - This runs at 07:00 on Mondays - Fridays
         -  Use whole python path 
-            - May use venv
-                - TBD
         - Use whole path for script
         - Add in action parameter
             - ```--action checkin```

@@ -174,9 +174,6 @@ Set-Cookie: ServerName=Angus-Checkin\r
             primary_payload = generate_payload(bookings)
             secondary_payload = generate_secondary_payload(bookings[1])
             for payload in (secondary_payload, primary_payload):
-                # print("\n")
-                # print(json.dumps(payload))
-                # print("\n")
                 api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split("=")[1]}"
                 headers = {
                     "Authorization": f"Bearer {self.elite_session_token}",
@@ -190,13 +187,13 @@ Set-Cookie: ServerName=Angus-Checkin\r
 
     def get_upcoming_bookings(self):
         file_path = "outputs/test-3/input.json"
-    
-        try:
-            with open(file_path, "r", encoding="utf-8") as file:
-                return json.load(file)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Error reading JSON file: {e}")
-            return None
+        # For future debug mode
+        # try:
+        #     with open(file_path, "r", encoding="utf-8") as file:
+        #         return json.load(file)
+        # except (FileNotFoundError, json.JSONDecodeError) as e:
+        #     print(f"Error reading JSON file: {e}")
+        #     return None
         try:
             # Define the API endpoint
             api_url = f"{self.address}/EnterpriseLite/api/Booking/GetUpComingBookings"
@@ -214,8 +211,6 @@ Set-Cookie: ServerName=Angus-Checkin\r
 
             # Parse JSON response
             bookings = response.json()
-            print(json.dumps(bookings))
-            print("\n\n")
             return bookings
         except requests.RequestException as e:
             print("Error fetching upcoming bookings:", e)
@@ -226,7 +221,6 @@ Set-Cookie: ServerName=Angus-Checkin\r
         
         start_date = yesterday.replace(hour=14, minute=0, second=0, microsecond=0)
         end_date = today.replace(hour=13, minute=59, second=59, microsecond=0)
-        
         return start_date.strftime("%Y-%m-%d %H:%M:%S"), end_date.strftime("%Y-%m-%d %H:%M:%S")
 
     def book(self):
