@@ -8,7 +8,9 @@ import string
 def get_config(config_filename, user=None):
     """Fetch credentials from the YAML config file (assuming only one exists)."""
     if not os.path.isfile(config_filename):
-        raise FileNotFoundError(f"Config file '{config_filename}' not found.")
+        generate_yaml(config_filename)
+        print("File not found, generating standard YAML file\nPlease modify to meet requirements")
+        sys.exit()
 
     with open(config_filename, "r") as file:
         config = yaml.safe_load(file)
