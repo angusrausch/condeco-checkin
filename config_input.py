@@ -71,7 +71,43 @@ def get_webserver_config(config_filename):
     return address, port
 
 def create_user(filename):
-    pass
+    try:
+        # Load existing YAML content
+        with open(filename, 'r') as file:
+            data = yaml.safe_load(file)
+    except FileNotFoundError:
+        generate_yaml(filename)
+        with open(filename, 'r') as file:
+            data = yaml.safe_load(file)
+    except yaml.scanner.ScannerError:
+        print("Malformed YAML detected\nPlease fix configuration file")
+        sys.exit()
+
+    if "CREDENTIALS" not in data:
+        data["CREDENTIALS"] = []
+    
+    # Append the new credential
+    random_key = ''.join(random.choices(string.ascii_letters + string.digits, k=32))
+    new_credentials = {
+        "Address": "https://boeing.condecosoftware.com",
+        "Username": "f.m.l@boeing.com",
+        "Password": "",
+        "Name": "First Last *MUST MATCH EXACTLY YOUR CONDECO NAME",
+        "Key": random_key
+    }
+    data["CREDENTIALS"].append(new_credentials)
+    
+    # Write back to the file
+    with open(filename, 'w') as file:
+        yaml.dump(data, file, default_flow_style=False)
+    
+    print("Credential added successfully.")
+    print(f"""
+Credential added successfully 
+Please change {filename} to add user infromation
+*** Do not modify key value ***
+          """)
+    sys.exit()
 
 def generate_yaml(filename):
     """Generate a default YAML configuration file."""

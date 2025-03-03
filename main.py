@@ -1,6 +1,6 @@
 import json
 import sys
-from config_input import get_config, get_booking_details, get_webserver_config, get_user_list
+from config_input import get_config, get_booking_details, get_webserver_config, get_user_list, create_user
 from payload_generator import generate_payload, generate_secondary_payload
 import requests
 from bs4 import BeautifulSoup
@@ -16,7 +16,10 @@ from urllib.parse import urlparse, parse_qs
 class App:
     def __init__(self, args):
         self.config = "signin.yaml" if not args.config else args.config
+        if args.add_user:
+            create_user(self.config)
         action = args.action
+        if not action: print("Action is required, please input action with --action")
         try:
             if args.listen:
                 self.listen_for_activation()
@@ -231,7 +234,6 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="checkin.yaml", help="Path to the configuration file. Default is 'signin.ini'.")
     parser.add_argument("--action", type=str, help="Action to complete: Options: Book, Checkin")
     parser.add_argument("--listen", action="store_true", help="Turn on server to listen for checkin")
-    
+    parser.add_argument("--add-user", action="store_true", help="Add additional user to config. For use with listen")
     args = parser.parse_args()
-    if not args.action: print("Action is required, please input action with --action")
     App(args)
