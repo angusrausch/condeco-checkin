@@ -158,11 +158,14 @@ Set-Cookie: ServerName=Angus-Checkin\r
                         self.login()
                         self.checkin()
                         http_response = good_response
+                        print(f"{datetime.now()}: Checked in user: {user['Name']}")
                     except Exception as e:
+                        print(f"{datetime.now()}: Failed to check in user")
                         traceback.print_exc()
                         http_response = bad_response
                 else:
                     http_response = bad_response
+                    print(f"{datetime.now()}: Unknown key: {key_value}")
 
                 client_socket.sendall(http_response.encode("utf-8"))
 
