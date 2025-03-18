@@ -18,6 +18,7 @@ class App:
         self.input_file = args.input_file if args.input_file else None
         self.output_file = args.output_file if args.output_file else None
         self.dry_run = args.dry_run
+        self.booking_save = args.save_booking_info
         self.config = "signin.yaml" if not args.config else args.config
         if args.add_user:
             create_user(self.config)
@@ -33,6 +34,8 @@ class App:
                     self.book()
                 elif args.checkin:
                     self.checkin()
+                else:
+                    print("Please select action (checkin, book)")
         except Exception as e:
             traceback.print_exc()
 
@@ -228,7 +231,12 @@ Set-Cookie: ServerName=Angus-Checkin\r
             except requests.RequestException as e:
                 print("Error fetching upcoming bookings:", e)
                 exit()
-        
+
+        if self.booking_save:
+            file =open(self.booking_save, "w")
+            json.dump(bookings, file, indent=2)
+            exit()
+
         if type(bookings) == dict:
             bookings = [bookings]
         if type(bookings) == list: 
@@ -258,5 +266,6 @@ if __name__ == "__main__":
     parser.add_argument("--input-file", help="Debugger to run from a json file containing the json data")
     parser.add_argument("--output-file", help="Debugger to saved output to a file")
     parser.add_argument("--dry-run", default=False, nargs="?", const=True, help="Print output instead of sending to server | Use \"f\" to format as json in output")
+    parser.add_argument("--save-booking-info", help="Saves the booking input as json")
     args = parser.parse_args()
     App(args)
