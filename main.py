@@ -1,7 +1,7 @@
 import json
 import sys
 from config_input import get_config, get_booking_details, get_webserver_config, get_user_list, create_user
-from payload_generator import generate_payload, generate_secondary_payload
+from payload_generator import generate_payload, generate_secondary_payload, generate_singular_booking
 import requests
 from bs4 import BeautifulSoup
 from humanise import humanise
@@ -177,23 +177,37 @@ Set-Cookie: ServerName=Angus-Checkin\r
     def checkin(self):
         bookings = self.get_upcoming_bookings()
         if bookings:
-            primary_payload = generate_payload(bookings)
-            secondary_payload = generate_secondary_payload(bookings[1])
-            for payload in (secondary_payload, primary_payload):
-                api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split("=")[1]}"
-                headers = {
-                    "Authorization": f"Bearer {self.elite_session_token}",
-                    "Content-Type": "application/json; charset=utf-8"
-                }
+            payloads = []
+            try:
+                if len(bookings) == 2:
+                    payloads.append(generate_payload(bookings))
+                    payloads.append(generate_secondary_payload(bookings[1]))
+                else:
+                    payloads = [generate_singular_booking(bookings[0])]
+            except (KeyError, IndexError) as e:
+                print(f"Error in payload generation: {e.with_traceback()}")
+                return False
+            else:
+                for payload in (payloads):
+                    # print(json.dumps(payload))
+                    # file_path = "data/output.json"
+                    # contents = json.dumps(payload)
+                    # with open(file_path, "w", encoding="utf-8") as file:
+                    #     file.write(contents)
+                    api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split('=')[1]}"
+                    headers = {
+                        "Authorization": f"Bearer {self.elite_session_token}",
+                        "Content-Type": "application/json; charset=utf-8"
+                    }
 
-                checkin_response = self.session.put(api_address, json=payload, headers=headers)
-                checkin_response.raise_for_status()
+                    checkin_response = self.session.put(api_address, json=payload, headers=headers)
+                    checkin_response.raise_for_status()
         else: 
             print("Bookings info request failed")
 
     def get_upcoming_bookings(self):
-        file_path = "outputs/test-3/input.json"
         # For future debug mode
+        # file_path = "data/input.json"
         # try:
         #     with open(file_path, "r", encoding="utf-8") as file:
         #         return json.load(file)
