@@ -1,7 +1,7 @@
 import json
 import sys
 from config_input import get_config, get_booking_details, get_webserver_config, get_user_list, create_user
-from payload_generator import generate_payload, generate_secondary_payload, generate_singular_booking
+from payload_generator import Payload_Generator
 import requests
 from bs4 import BeautifulSoup
 from humanise import humanise
@@ -15,11 +15,12 @@ from urllib.parse import urlparse, parse_qs
 
 class App:
     def __init__(self, args):
+        self.input_file = args.input_file if args.input_file else None
+        self.output_file = args.output_file if args.output_file else None
+        self.dry_run = args.dry_run
         self.config = "signin.yaml" if not args.config else args.config
         if args.add_user:
             create_user(self.config)
-        action = args.action
-        if not action: print("Action is required, please input action with --action")
         try:
             if args.listen:
                 self.listen_for_activation()
@@ -27,9 +28,10 @@ class App:
                 self.credentials, self.address, self.name = get_config(self.config)
                 if (login_message := self.login()) != True:
                     print(login_message[1])
-                if action == "book":
+                    exit()
+                if args.book:
                     self.book()
-                elif action == "checkin":
+                elif args.checkin:
                     self.checkin()
         except Exception as e:
             traceback.print_exc()
@@ -46,7 +48,6 @@ class App:
         view_state_generator = soup.find("input", {"name": "__VIEWSTATEGENERATOR"})["value"]
         event_validation = soup.find("input", {"name": "__EVENTVALIDATION"})["value"]
         
-        # Prepare login payload
         payload = {
             "__EVENTTARGET": "",
             "__EVENTARGUMENT": "",
@@ -58,11 +59,9 @@ class App:
             "btnLogin": "Sign+In"
         }
         
-        # Perform login
         login_response = self.session.post(login_url, data=payload)
         login_response.raise_for_status()
         
-        # Extract UserId from HTML response
         user_id_marker = "var int_userID = "
         user_id_start = login_response.text.find(user_id_marker) + len(user_id_marker)
         user_id_end = login_response.text.find(";", user_id_start)
@@ -71,13 +70,11 @@ class App:
         if not self.user_id:
             return (False, "Could not extract UserId from HTML")
         
-        # Extract userIdLong from cookies
         self.user_id_long = self.session.cookies.get("CONDECO")
         
         if not self.user_id_long:
             return (False, "CONDECO cookie was not retrieved.")
         
-        # Retrieve token for Enterprise login
         ent_login_url = f"{self.address}/EnterpriseLiteLogin.aspx"
         ent_response = self.session.get(ent_login_url)
         ent_response.raise_for_status()
@@ -85,7 +82,6 @@ class App:
         soup = BeautifulSoup(ent_response.text, "html.parser")
         token = soup.find("input", {"name": "token"})["value"]
         
-        # Authenticate into Enterprise
         auth_url = f"{self.address}/enterpriselite/auth"
         auth_response = self.session.post(auth_url, data={"token": token})
         auth_response.raise_for_status()
@@ -94,7 +90,6 @@ class App:
         if not self.elite_session_token:
             return (False, "EliteSession cookie was not retrieved.")
         
-        # Set authorization header
         self.session.headers.update({"Authorization": f"Bearer {self.elite_session_token}"})
         
         return True
@@ -172,68 +167,75 @@ Set-Cookie: ServerName=Angus-Checkin\r
                 try:
                     client_socket.close()
                 except OSError:
-                    pass  # Ignore if already closed
+                    pass
 
     def checkin(self):
         bookings = self.get_upcoming_bookings()
         if bookings:
-            payloads = []
             try:
-                if len(bookings) == 2:
-                    payloads.append(generate_payload(bookings))
-                    payloads.append(generate_secondary_payload(bookings[1]))
-                else:
-                    payloads = [generate_singular_booking(bookings[0])]
+                payload_generator = Payload_Generator(bookings)
             except (KeyError, IndexError) as e:
                 print(f"Error in payload generation: {e.with_traceback()}")
-                return False
+                exit()
             else:
-                for payload in (payloads):
-                    # print(json.dumps(payload))
-                    # file_path = "data/output.json"
-                    # contents = json.dumps(payload)
-                    # with open(file_path, "w", encoding="utf-8") as file:
-                    #     file.write(contents)
-                    api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split('=')[1]}"
-                    headers = {
-                        "Authorization": f"Bearer {self.elite_session_token}",
-                        "Content-Type": "application/json; charset=utf-8"
-                    }
+                if args.output_file:
+                    with open(self.output_file, "w", encoding="utf-8") as file:
+                            file.write("Checkin Output\n")
+                            file.close()
+                for payload in payload_generator.get_payloads():
+                    if self.output_file:
+                        contents = json.dumps(payload, indent=2)
+                        with open(self.output_file, "a", encoding="utf-8") as file:
+                            file.write(contents)
+                    if self.dry_run:
+                        if self.dry_run == "f":
+                            print(json.dumps(payload, indent=2))
+                        else: 
+                            print(json.dumps(payload))
+                    if not self.output_file and not self.dry_run:
+                        api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split('=')[1]}"
+                        headers = {
+                            "Authorization": f"Bearer {self.elite_session_token}",
+                            "Content-Type": "application/json; charset=utf-8"
+                        }
 
-                    checkin_response = self.session.put(api_address, json=payload, headers=headers)
-                    checkin_response.raise_for_status()
+                        checkin_response = self.session.put(api_address, json=payload, headers=headers)
+                        checkin_response.raise_for_status()
         else: 
             print("Bookings info request failed")
 
     def get_upcoming_bookings(self):
-        # For future debug mode
-        # file_path = "data/input.json"
-        # try:
-        #     with open(file_path, "r", encoding="utf-8") as file:
-        #         return json.load(file)
-        # except (FileNotFoundError, json.JSONDecodeError) as e:
-        #     print(f"Error reading JSON file: {e}")
-        #     return None
-        try:
-            # Define the API endpoint
-            api_url = f"{self.address}/EnterpriseLite/api/Booking/GetUpComingBookings"
+        # Debugger
+        if self.input_file:
+            try:
+                with open(self.input_file, "r", encoding="utf-8") as file:
+                    bookings = json.load(file)
+            except (FileNotFoundError, json.JSONDecodeError) as e:
+                print(f"Error reading JSON file: {e}")
+                exit()
+        # Normal Operation
+        else:
+            try:
+                api_url = f"{self.address}/EnterpriseLite/api/Booking/GetUpComingBookings"
 
-            # Set the date range
-            start_date, end_date = self.get_date_range()
-            # Start date needs to be yesterday 14:00:00 end date is today 13:59:59
-            # start_date = "2025-02-26 14:00:00" 
-            # end_date = "2025-02-27 13:59:59"
-            params = {"startDateTime": start_date, "endDateTime": end_date}
+                start_date, end_date = self.get_date_range()
+                params = {"startDateTime": start_date, "endDateTime": end_date}
 
-            # Make the request (session must have the authentication cookies)
-            response = self.session.get(api_url, params=params)
-            response.raise_for_status()  # Raise an error for bad responses
+                response = self.session.get(api_url, params=params)
+                response.raise_for_status()  
 
-            # Parse JSON response
-            bookings = response.json()
+                bookings = response.json()
+            except requests.RequestException as e:
+                print("Error fetching upcoming bookings:", e)
+                exit()
+        
+        if type(bookings) == dict:
+            bookings = [bookings]
+        if type(bookings) == list: 
             return bookings
-        except requests.RequestException as e:
-            print("Error fetching upcoming bookings:", e)
+        else:
+            raise ValueError("Invalid or null return from request")
+        
 
     def get_date_range(self):
         today = datetime.today()
@@ -249,8 +251,12 @@ Set-Cookie: ServerName=Angus-Checkin\r
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A Condeco auto checkin app.")
     parser.add_argument("--config", type=str, default="checkin.yaml", help="Path to the configuration file. Default is 'signin.ini'.")
-    parser.add_argument("--action", type=str, help="Action to complete: Options: Book, Checkin")
+    parser.add_argument("--checkin", action="store_true", help="Check into desk for the day")
+    parser.add_argument("--book", action="store_true", help="Book desk - currently unavailable")
     parser.add_argument("--listen", action="store_true", help="Turn on server to listen for checkin")
     parser.add_argument("--add-user", action="store_true", help="Add additional user to config. For use with listen")
+    parser.add_argument("--input-file", help="Debugger to run from a json file containing the json data")
+    parser.add_argument("--output-file", help="Debugger to saved output to a file")
+    parser.add_argument("--dry-run", default=False, nargs="?", const=True, help="Print output instead of sending to server | Use \"f\" to format as json in output")
     args = parser.parse_args()
     App(args)
