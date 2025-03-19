@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 from config_input import get_user_list, get_config
+from custom_exceptions import AuthenticationError
 
 class User:
     def __init__(self, config, key = None):
@@ -49,8 +50,11 @@ class User:
         ent_response.raise_for_status()
         
         soup = BeautifulSoup(ent_response.text, "html.parser")
-        token = soup.find("input", {"name": "token"})["value"]
-        
+        try:
+            token = soup.find("input", {"name": "token"})["value"]
+        except TypeError as e:
+            raise AuthenticationError(f"Failed to authenticate: {e}")
+
         auth_url = f"{self.address}/enterpriselite/auth"
         auth_response = self.session.post(auth_url, data={"token": token})
         auth_response.raise_for_status()

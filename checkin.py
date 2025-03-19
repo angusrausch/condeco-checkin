@@ -3,6 +3,7 @@ from payload_generator import Payload_Generator
 import json
 import requests
 from datetime import datetime, timedelta
+from custom_exceptions import AuthenticationError
 
 class Checkin:
     def __init__(self, config, args = None, key = None):
@@ -12,19 +13,18 @@ class Checkin:
         self.booking_save = args.save_booking_info
 
         self.user = User(config, key)
-        
+
         self.checkin()
 
     def checkin(self):
         if not self.user.logged_in[0]:
-            print(self.user.logged_in[1])
+            raise AuthenticationError("User not logged in")
         bookings = self.get_upcoming_bookings()
         if bookings:
             try:
                 payload_generator = Payload_Generator(bookings)
             except (KeyError, IndexError) as e:
-                print(f"Error in payload generation: {e.with_traceback()}")
-                exit()
+                raise KeyError(f"Error in payload generation:\n{e.with_traceback()}")
             else:
                 if self.output_file:
                     with open(self.output_file, "w", encoding="utf-8") as file:
@@ -41,14 +41,15 @@ class Checkin:
                         else: 
                             print(json.dumps(payload))
                     if not self.output_file and not self.dry_run:
-                        api_address = f"{self.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user_id_long.split('=')[1]}"
+                        api_address = f"{self.user.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user.user_id_long.split('=')[1]}"
                         headers = {
-                            "Authorization": f"Bearer {self.elite_session_token}",
+                            "Authorization": f"Bearer {self.user.elite_session_token}",
                             "Content-Type": "application/json; charset=utf-8"
                         }
 
                         checkin_response = self.user.session.put(api_address, json=payload, headers=headers)
                         checkin_response.raise_for_status()
+                        self.success = (True)
         else: 
             print("Bookings info request failed")
 
@@ -73,9 +74,9 @@ class Checkin:
                 response.raise_for_status()  
 
                 bookings = response.json()
+                raise requests.RequestException()
             except requests.RequestException as e:
-                print("Error fetching upcoming bookings:", e)
-                exit()
+                raise requests.RequestException(f"Error fetching upcoming bookings: {e}")
 
         if self.booking_save:
             file =open(self.booking_save, "w")
