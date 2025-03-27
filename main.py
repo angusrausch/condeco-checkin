@@ -31,7 +31,7 @@ class App:
         except Exception as e:
             traceback.print_exc()
 
-    def checkin(self, args):
+    def checkin(self):
         try:
             Checkin(self.config, self.args)
         except Exception as e:

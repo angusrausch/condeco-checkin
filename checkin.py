@@ -74,7 +74,6 @@ class Checkin:
                 response.raise_for_status()  
 
                 bookings = response.json()
-                raise requests.RequestException()
             except requests.RequestException as e:
                 raise requests.RequestException(f"Error fetching upcoming bookings: {e}")
 
