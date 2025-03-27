@@ -73,6 +73,7 @@ For listener use
             <small>This is required due to cron jobs not having enviroment knowledge</small>
         - Example
             ```5 0 * * 1 /bin/python3 /home/user/condeco-autobook/main.py --action checkin --config /home/user/condeco-autobook/checkin.ini```
+    - Can use ```--check-home``` to check if a associated ip address in yaml file is on same network. Recommend to check at time closer to 9:30
 
 ### Listen for checkin
 *** Use at your own risk. Check with manager before enabling auto checkin ***

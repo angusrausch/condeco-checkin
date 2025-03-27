@@ -31,6 +31,18 @@ def get_config(config_filename, user=None):
     # Returning credentials in the desired format
     return (credentials["Username"], credentials["Password"]), credentials["Address"], credentials["Name"]
 
+def get_phone_ip(config_filename, email):
+    with open(config_filename, "r") as file:
+        config = yaml.safe_load(file)
+
+    try:
+        phone_ip = next(
+            (cred["Phone"] for cred in config.get("CREDENTIALS", []) if cred.get("Username") == email),
+            None
+        )
+        return phone_ip
+    except yaml.YAMLError:
+        return False
 
 def get_user_list(config_filename):
     """Extract all users from the YAML config file."""
@@ -95,7 +107,8 @@ def create_user(filename):
         "Username": "f.m.l@boeing.com",
         "Password": "",
         "Name": "First Last *MUST MATCH EXACTLY YOUR CONDECO NAME",
-        "Key": random_key
+        "Key": random_key,
+        "Phone": ""
     }
     data["CREDENTIALS"].append(new_credentials)
     
@@ -126,7 +139,8 @@ def generate_yaml(filename):
             "Username": "f.m.l@boeing.com",
             "Password": "password",
             "Name": "First Last *MUST MATCH EXACTLY YOUR CONDECO NAME",
-            "Key": random_key
+            "Key": random_key,
+            "Phone": "Phone_IP"
         },
         "BOOKING": [
             {

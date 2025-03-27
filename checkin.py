@@ -1,9 +1,11 @@
+import subprocess
 from user import User
 from payload_generator import Payload_Generator
 import json
 import requests
 from datetime import datetime, timedelta
 from custom_exceptions import AuthenticationError
+from config_input import get_phone_ip
 
 class Checkin:
     def __init__(self, config, args = None, key = None):
@@ -11,6 +13,8 @@ class Checkin:
         self.output_file = args.output_file if args.output_file else None
         self.dry_run = args.dry_run
         self.booking_save = args.save_booking_info
+        self.check_home = args.check_home
+        self.config = config
 
         self.user = User(config, key)
 
@@ -19,6 +23,10 @@ class Checkin:
     def checkin(self):
         if not self.user.logged_in[0]:
             raise AuthenticationError("User not logged in")
+        if self.check_home: 
+            if self.check_phone_is_home():
+                print("Not checking in as User is found to be home")
+                return
         bookings = self.get_upcoming_bookings()
         if bookings:
             try:
@@ -36,10 +44,10 @@ class Checkin:
                         with open(self.output_file, "a", encoding="utf-8") as file:
                             file.write(contents)
                     if self.dry_run:
-                        if self.dry_run == "f":
-                            print(json.dumps(payload, indent=2))
-                        else: 
+                        if self.dry_run == "p":
                             print(json.dumps(payload))
+                        elif self.dry_run == "f":
+                            print(json.dumps(payload, indent=2))
                     if not self.output_file and not self.dry_run:
                         api_address = f"{self.user.address}/EnterpriseLite/api/Booking/ChangeBookingState?ClientId={self.user.user_id_long.split('=')[1]}"
                         headers = {
@@ -89,6 +97,16 @@ class Checkin:
         else:
             raise ValueError("Invalid or null return from request")
         
+    def check_phone_is_home(self):
+        try:
+            phone_ip = get_phone_ip(self.config, self.user.credentials[0])
+            ping_command = ["ping", phone_ip, "-c", "5"]
+            ping_output = subprocess.run(ping_command, capture_output=True, text=True)
+            if not any(loss in str(ping_output) for loss in ("100% packet loss", "100.0% packet loss")):
+                return True
+        except subprocess.SubprocessError as e: 
+            print(f"ERROR checking ip is present (BACKUP TO CHECKIN):\n{e}")
+        return False
 
     def get_date_range(self):
         today = datetime.today()
