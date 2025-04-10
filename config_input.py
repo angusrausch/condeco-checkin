@@ -14,7 +14,6 @@ def get_config(config_filename, user=None):
 
     with open(config_filename, "r") as file:
         config = yaml.safe_load(file)
-
     # If user is provided, look for the corresponding credentials in the list
     if user:
         credentials = next(
@@ -23,11 +22,9 @@ def get_config(config_filename, user=None):
         )
     else:
         # If no user is provided, and CREDENTIALS is a list, pick the first item
-        credentials = config.get("CREDENTIALS", [{}])[0]
-
+        credentials = config.get("CREDENTIALS", [{}])
     if not credentials:
         raise ValueError("No credentials found in the configuration file.")
-
     # Returning credentials in the desired format
     return (credentials["Username"], credentials["Password"]), credentials["Address"], credentials["Name"]
 
