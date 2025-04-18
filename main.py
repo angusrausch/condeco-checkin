@@ -16,6 +16,7 @@ from custom_exceptions import AuthenticationError
 class App:
     def __init__(self, args):
         self.args = args
+        print(f"\n\n\n{datetime.now()}")
         self.config = "signin.yaml" if not args.config else args.config
         if args.add_user:
             create_user(self.config)
@@ -23,19 +24,14 @@ class App:
             if args.listen:
                 self.listen_for_activation()
             elif args.checkin:
-                self.checkin()
+                Checkin(self.config, self.args)
             elif args.book:
                 Book(self.config)
             else:
                 print("Please select action [checkin, book]")
         except Exception as e:
+            print(f"Unexpected error caught in main function:")
             traceback.print_exc()
-
-    def checkin(self):
-        try:
-            Checkin(self.config, self.args)
-        except Exception as e:
-            print(e)
 
     def listen_for_activation(self):
         good_response = f"""\

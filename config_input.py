@@ -3,7 +3,7 @@ import sys
 import yaml
 import random
 import string
-
+import traceback
 
 def get_config(config_filename, user=None):
     """Fetch credentials from the YAML config file (assuming only one exists)."""
@@ -42,6 +42,8 @@ def get_phone_ip(config_filename, email):
         )
         return phone_ip
     except yaml.YAMLError:
+        print(f"Error checking phone IP, check exists in YAML:\n")
+        traceback.print_exc()
         return False
 
 def get_user_list(config_filename):
@@ -94,7 +96,8 @@ def create_user(filename):
         with open(filename, 'r') as file:
             data = yaml.safe_load(file)
     except yaml.scanner.ScannerError:
-        print("Malformed YAML detected\nPlease fix configuration file")
+        print(f"Malformed YAML detected\nPlease fix configuration file:\n")
+        traceback.print_exc()
         sys.exit()
 
     if "CREDENTIALS" not in data:

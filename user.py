@@ -65,4 +65,4 @@ class User:
         
         self.session.headers.update({"Authorization": f"Bearer {self.elite_session_token}"})
         
-        self.logged_in = (True, False)
+        self.logged_in = (True, None)

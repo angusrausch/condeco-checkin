@@ -6,6 +6,7 @@ import requests
 from datetime import datetime, timedelta
 from custom_exceptions import AuthenticationError
 from config_input import get_phone_ip
+import traceback
 
 class Checkin:
     def __init__(self, config, args = None, key = None):
@@ -32,7 +33,8 @@ class Checkin:
             try:
                 payload_generator = Payload_Generator(bookings)
             except (KeyError, IndexError) as e:
-                raise KeyError(f"Error in payload generation:\n{e.with_traceback()}")
+                raise KeyError(f"Error in payload generation:\n")
+                traceback.print_exc()
             else:
                 if self.output_file:
                     with open(self.output_file, "w", encoding="utf-8") as file:
@@ -58,6 +60,7 @@ class Checkin:
                         checkin_response = self.user.session.put(api_address, json=payload, headers=headers)
                         checkin_response.raise_for_status()
                         self.success = (True)
+                print("Successfully Checked In")
         else: 
             print("Bookings info request failed")
 
@@ -68,7 +71,8 @@ class Checkin:
                 with open(self.input_file, "r", encoding="utf-8") as file:
                     bookings = json.load(file)
             except (FileNotFoundError, json.JSONDecodeError) as e:
-                print(f"Error reading JSON file: {e}")
+                print(f"Error reading JSON file:")
+                traceback.print_exc()
                 exit()
         # Normal Operation
         else:
@@ -83,7 +87,9 @@ class Checkin:
 
                 bookings = response.json()
             except requests.RequestException as e:
-                raise requests.RequestException(f"Error fetching upcoming bookings: {e}")
+                print("Error fetching upcoming bookings:")
+                traceback.print_exc()
+                exit()
 
         if self.booking_save:
             file =open(self.booking_save, "w")
@@ -105,7 +111,8 @@ class Checkin:
             if not any(loss in str(ping_output) for loss in ("100% packet loss", "100.0% packet loss")):
                 return True
         except subprocess.SubprocessError as e: 
-            print(f"ERROR checking ip is present (BACKUP TO CHECKIN):\n{e}")
+            print(f"ERROR checking ip is present (BACKUP TO CHECKIN):\n")
+            traceback.print_exc()
         return False
 
     def get_date_range(self):
