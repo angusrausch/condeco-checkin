@@ -12,15 +12,19 @@ import socket
 import select
 from urllib.parse import urlparse, parse_qs
 from custom_exceptions import AuthenticationError
-
+import io
 class App:
     def __init__(self, args):
-        self.args = args
-        print(f"\n\n\n{datetime.now()}")
-        self.config = "signin.yaml" if not args.config else args.config
-        if args.add_user:
-            create_user(self.config)
         try:
+            self.args = args
+            if args.log:
+                log_buffer = io.StringIO()
+                sys.stdout = log_buffer
+                sys.stderr = log_buffer
+            print(f"\n\n\n{datetime.now()}")
+            self.config = "signin.yaml" if not args.config else args.config
+            if args.add_user:
+                create_user(self.config)
             if args.listen:
                 self.listen_for_activation()
             elif args.checkin:
@@ -32,6 +36,9 @@ class App:
         except Exception as e:
             print(f"Unexpected error caught in main function:")
             traceback.print_exc()
+        if args.log:
+            with open(args.log, "w") as f:
+                f.write(log_buffer.getvalue())
 
     def listen_for_activation(self):
         good_response = f"""\
@@ -126,5 +133,6 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", default=False, nargs="?", const=True, help="Does not send request to server | Use \"p\" to print and \"f\" to format as json in output")
     parser.add_argument("--save-booking-info", help="Saves the booking input as json")
     parser.add_argument("--check-home", action="store_true", help="Checks if phone is home by IP before checking in")
+    parser.add_argument("--log", type=str, help="Save all output to a log file")
     args = parser.parse_args()
     App(args)
